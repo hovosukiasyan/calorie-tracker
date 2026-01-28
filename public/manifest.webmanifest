@@ -1,0 +1,21 @@
+{
+    "name": "Calorie Tracker",
+    "short_name": "Calories",
+    "description": "Offline calorie tracking with daily targets, deficit analysis, and charts",
+    "id": "/",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "display_override": ["standalone", "fullscreen"],
+    "background_color": "#0f172a",
+    "theme_color": "#0f172a",
+    "orientation": "portrait",
+    "icons": [
+      {
+        "src": "/icons/icon-512x512.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "any maskable"
+      }
+    ]
+  }
