@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Calorie Tracker (PWA)
+
+Calorie Tracker is an offline-first, installable Next.js 15 (App Router) PWA for tracking daily calories with local-only data storage via IndexedDB (Dexie). It works on desktop and mobile and remains usable without a network connection.
+
+## Features
+- Onboarding wizard to calculate BMR, TDEE, and daily targets.
+- Daily logging with editable entries and macro support.
+- History and analytics dashboards with charts.
+- Local-only data storage with export/import and reset tools.
+- Installable PWA with offline shell support.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Build & Run
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm run start
+```
 
-## Learn More
+## Deploy to Vercel
 
-To learn more about Next.js, take a look at the following resources:
+1. Push your repository to GitHub.
+2. Import the repo in Vercel.
+3. Use the default Next.js build settings.
+4. After deployment, open the site and install it as a PWA.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Add to Home Screen
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**iOS (Safari)**
+1. Open the app URL.
+2. Tap the share icon.
+3. Tap **Add to Home Screen**.
 
-## Deploy on Vercel
+**Android (Chrome)**
+1. Open the app URL.
+2. Tap the three-dot menu.
+3. Tap **Install app** / **Add to Home screen**.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Local Storage Notes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Data is stored locally in IndexedDB (Dexie) in your browser.
+- Clearing site data or browser storage will delete your entries.
+- Use **Settings → Export JSON** to back up your data.
+
+## PWA Icons
+
+Place your production app icons in:
+- `public/icons/icon-192x192.png`
+- `public/icons/icon-512x512.png`
+
+Replace the placeholder images with your own branding.

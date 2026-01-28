@@ -1,0 +1,2398 @@
+diff --git a/README.md b/README.md
+index e215bc4ccf138bbc38ad58ad57e92135484b3c0f..01b7d90bb240f1a3f4ab3d099f00b6bbbdc33b36 100644
+--- a/README.md
++++ b/README.md
+@@ -1,36 +1,59 @@
+-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
++# Calorie Tracker (PWA)
+ 
+-## Getting Started
++Calorie Tracker is an offline-first, installable Next.js 15 (App Router) PWA for tracking daily calories with local-only data storage via IndexedDB (Dexie). It works on desktop and mobile and remains usable without a network connection.
++
++## Features
++- Onboarding wizard to calculate BMR, TDEE, and daily targets.
++- Daily logging with editable entries and macro support.
++- History and analytics dashboards with charts.
++- Local-only data storage with export/import and reset tools.
++- Installable PWA with offline shell support.
+ 
+-First, run the development server:
++## Getting Started
+ 
+ ```bash
++npm install
+ npm run dev
+-# or
+-yarn dev
+-# or
+-pnpm dev
+-# or
+-bun dev
+ ```
+ 
+-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
++Visit [http://localhost:3000](http://localhost:3000).
++
++## Build & Run
++
++```bash
++npm run build
++npm run start
++```
++
++## Deploy to Vercel
+ 
+-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
++1. Push your repository to GitHub.
++2. Import the repo in Vercel.
++3. Use the default Next.js build settings.
++4. After deployment, open the site and install it as a PWA.
+ 
+-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
++## Add to Home Screen
+ 
+-## Learn More
++**iOS (Safari)**
++1. Open the app URL.
++2. Tap the share icon.
++3. Tap **Add to Home Screen**.
+ 
+-To learn more about Next.js, take a look at the following resources:
++**Android (Chrome)**
++1. Open the app URL.
++2. Tap the three-dot menu.
++3. Tap **Install app** / **Add to Home screen**.
+ 
+-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
++## Local Storage Notes
+ 
+-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
++- Data is stored locally in IndexedDB (Dexie) in your browser.
++- Clearing site data or browser storage will delete your entries.
++- Use **Settings → Export JSON** to back up your data.
+ 
+-## Deploy on Vercel
++## PWA Icons
+ 
+-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
++Place your production app icons in:
++- `public/icons/icon-192x192.png`
++- `public/icons/icon-512x512.png`
+ 
+-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
++Replace the placeholder images with your own branding.
+diff --git a/app/analytics/page.tsx b/app/analytics/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..a95d36baec2f1e4efb03a67394b9998945dc081e
+--- /dev/null
++++ b/app/analytics/page.tsx
+@@ -0,0 +1,170 @@
++"use client";
++
++import { useEffect } from "react";
++import { useRouter } from "next/navigation";
++import {
++  Bar,
++  BarChart,
++  CartesianGrid,
++  Legend,
++  Line,
++  LineChart,
++  ResponsiveContainer,
++  Tooltip,
++  XAxis,
++  YAxis,
++} from "recharts";
++import AppShell from "@/src/components/AppShell";
++import StatCard from "@/src/components/StatCard";
++import { useEntriesBetweenDays, useProfile } from "@/src/db";
++import { formatNumber } from "@/src/lib/calculations";
++import { addDays, formatDay, getLocalDayKey, subtractDays } from "@/src/lib/date";
++
++const buildDaySeries = (startKey: string, days: number, totals: Map<string, number>) =>
++  Array.from({ length: days }).map((_, index) => {
++    const dayKey = addDays(startKey, index);
++    return {
++      dayKey,
++      label: formatDay(dayKey),
++      calories: totals.get(dayKey) ?? 0,
++    };
++  });
++
++export default function AnalyticsPage() {
++  const router = useRouter();
++  const profile = useProfile();
++  const todayKey = getLocalDayKey(new Date());
++  const startKey = subtractDays(todayKey, 29);
++  const entries = useEntriesBetweenDays(startKey, todayKey) ?? [];
++
++  useEffect(() => {
++    if (profile === null) {
++      router.replace("/onboarding");
++    }
++  }, [profile, router]);
++
++  if (!profile) {
++    return (
++      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
++        <p className="text-sm text-slate-400">Loading analytics…</p>
++      </div>
++    );
++  }
++
++  const totals = new Map<string, number>();
++  entries.forEach((entry) => {
++    totals.set(entry.dayKey, (totals.get(entry.dayKey) ?? 0) + entry.calories);
++  });
++
++  const last30 = buildDaySeries(startKey, 30, totals);
++  const last14 = last30.slice(-14);
++  const last7 = last30.slice(-7);
++
++  const rolling = last30.map((item, index) => {
++    const slice = last30.slice(Math.max(0, index - 6), index + 1);
++    const avg = slice.reduce((sum, val) => sum + val.calories, 0) / slice.length;
++    return { ...item, average: Math.round(avg) };
++  });
++
++  const totalCalories = last30.reduce((sum, item) => sum + item.calories, 0);
++  const average = totalCalories / last30.length;
++  const highestDay = last30.reduce((max, item) => (item.calories > max.calories ? item : max), last30[0]);
++  const bestDay = last30.reduce((best, item) => {
++    const delta = Math.abs(item.calories - profile.targetCalories);
++    const bestDelta = Math.abs(best.calories - profile.targetCalories);
++    return delta < bestDelta ? item : best;
++  }, last30[0]);
++  const adherenceDays = last30.filter(
++    (item) =>
++      item.calories >= profile.targetCalories - 100 &&
++      item.calories <= profile.targetCalories + 100,
++  );
++
++  return (
++    <AppShell title="Analytics">
++      <div className="grid gap-4 lg:grid-cols-4">
++        <StatCard label="30-day average" value={`${formatNumber(Math.round(average))} kcal`} />
++        <StatCard
++          label="Best day"
++          value={`${formatNumber(bestDay.calories)} kcal`}
++          helper={formatDay(bestDay.dayKey)}
++        />
++        <StatCard
++          label="Highest day"
++          value={`${formatNumber(highestDay.calories)} kcal`}
++          helper={formatDay(highestDay.dayKey)}
++        />
++        <StatCard
++          label="Adherence"
++          value={`${Math.round((adherenceDays.length / last30.length) * 100)}%`}
++          helper="Days within +/- 100 kcal"
++        />
++      </div>
++
++      <section className="mt-6 space-y-6">
++        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
++          <h2 className="text-lg font-semibold text-white">Weekly intake vs target</h2>
++          <p className="text-xs text-slate-400">Last 7 days</p>
++          <div className="mt-4 h-64">
++            <ResponsiveContainer width="100%" height="100%">
++              <LineChart data={last7}>
++                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
++                <XAxis dataKey="label" stroke="#94a3b8" />
++                <YAxis stroke="#94a3b8" />
++                <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155" }} />
++                <Legend />
++                <Line type="monotone" dataKey="calories" stroke="#34d399" strokeWidth={2} />
++                <Line
++                  type="monotone"
++                  dataKey={() => profile.targetCalories}
++                  name="Target"
++                  stroke="#f97316"
++                  strokeDasharray="4 4"
++                />
++              </LineChart>
++            </ResponsiveContainer>
++          </div>
++        </div>
++
++        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
++          <h2 className="text-lg font-semibold text-white">Rolling 7-day average</h2>
++          <p className="text-xs text-slate-400">Last 30 days</p>
++          <div className="mt-4 h-64">
++            <ResponsiveContainer width="100%" height="100%">
++              <LineChart data={rolling}>
++                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
++                <XAxis dataKey="label" stroke="#94a3b8" />
++                <YAxis stroke="#94a3b8" />
++                <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155" }} />
++                <Legend />
++                <Line type="monotone" dataKey="average" stroke="#38bdf8" strokeWidth={2} />
++              </LineChart>
++            </ResponsiveContainer>
++          </div>
++        </div>
++
++        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
++          <h2 className="text-lg font-semibold text-white">Deficit / surplus</h2>
++          <p className="text-xs text-slate-400">Last 14 days vs target</p>
++          <div className="mt-4 h-64">
++            <ResponsiveContainer width="100%" height="100%">
++              <BarChart
++                data={last14.map((item) => ({
++                  ...item,
++                  delta: item.calories - profile.targetCalories,
++                }))}
++              >
++                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
++                <XAxis dataKey="label" stroke="#94a3b8" />
++                <YAxis stroke="#94a3b8" />
++                <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155" }} />
++                <Legend />
++                <Bar dataKey="delta" fill="#f97316" name="Delta" />
++              </BarChart>
++            </ResponsiveContainer>
++          </div>
++        </div>
++      </section>
++    </AppShell>
++  );
++}
+diff --git a/app/history/page.tsx b/app/history/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..fd32b875925388172434930dc15afbd34dc941c1
+--- /dev/null
++++ b/app/history/page.tsx
+@@ -0,0 +1,120 @@
++"use client";
++
++import { useEffect, useMemo, useState } from "react";
++import { useRouter } from "next/navigation";
++import AppShell from "@/src/components/AppShell";
++import { useEntriesBetweenDays, useProfile } from "@/src/db";
++import { formatNumber } from "@/src/lib/calculations";
++import { formatLongDate, getLocalDayKey, subtractDays } from "@/src/lib/date";
++
++const RANGE_DAYS = 30;
++
++export default function HistoryPage() {
++  const router = useRouter();
++  const profile = useProfile();
++  const todayKey = getLocalDayKey(new Date());
++  const startKey = subtractDays(todayKey, RANGE_DAYS - 1);
++  const entries = useEntriesBetweenDays(startKey, todayKey) ?? [];
++  const [selectedDay, setSelectedDay] = useState(todayKey);
++
++  useEffect(() => {
++    if (profile === null) {
++      router.replace("/onboarding");
++    }
++  }, [profile, router]);
++
++  const daySummaries = useMemo(() => {
++    const map = new Map<string, number>();
++    entries.forEach((entry) => {
++      map.set(entry.dayKey, (map.get(entry.dayKey) ?? 0) + entry.calories);
++    });
++    return Array.from({ length: RANGE_DAYS }).map((_, index) => {
++      const dayKey = subtractDays(todayKey, index);
++      return {
++        dayKey,
++        total: map.get(dayKey) ?? 0,
++      };
++    });
++  }, [entries, todayKey]);
++
++  const selectedEntries = useMemo(
++    () => entries.filter((entry) => entry.dayKey === selectedDay),
++    [entries, selectedDay],
++  );
++
++  if (!profile) {
++    return (
++      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
++        <p className="text-sm text-slate-400">Loading history…</p>
++      </div>
++    );
++  }
++
++  return (
++    <AppShell title="History">
++      <div className="grid gap-6 lg:grid-cols-[1.2fr_2fr]">
++        <section className="space-y-3">
++          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">
++            Past {RANGE_DAYS} days
++          </h2>
++          <div className="space-y-2">
++            {daySummaries.map((day) => (
++              <button
++                key={day.dayKey}
++                onClick={() => setSelectedDay(day.dayKey)}
++                className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition ${
++                  selectedDay === day.dayKey
++                    ? "border-emerald-400 bg-emerald-400/10 text-white"
++                    : "border-slate-800 bg-slate-900/70 text-slate-300"
++                }`}
++              >
++                <span>{formatLongDate(day.dayKey)}</span>
++                <span>{formatNumber(day.total)} kcal</span>
++              </button>
++            ))}
++          </div>
++        </section>
++
++        <section className="rounded-2xl border border-slate-800 bg-slate-900/70">
++          <div className="border-b border-slate-800 px-5 py-4">
++            <h3 className="text-lg font-semibold text-white">
++              {formatLongDate(selectedDay)}
++            </h3>
++            <p className="text-xs text-slate-400">
++              Target: {formatNumber(profile.targetCalories)} kcal
++            </p>
++          </div>
++          <div className="divide-y divide-slate-800">
++            {selectedEntries.length === 0 ? (
++              <p className="px-5 py-6 text-sm text-slate-400">
++                No entries logged for this day.
++              </p>
++            ) : (
++              selectedEntries
++                .slice()
++                .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
++                .map((entry) => (
++                  <div key={entry.id} className="flex items-center justify-between px-5 py-4">
++                    <div>
++                      <p className="text-sm font-medium text-white">
++                        {entry.label ?? "Untitled entry"}
++                      </p>
++                      <p className="text-xs text-slate-400">
++                        {new Date(entry.createdAt).toLocaleTimeString("en-US", {
++                          hour: "numeric",
++                          minute: "2-digit",
++                        })}
++                      </p>
++                    </div>
++                    <p className="text-sm text-slate-200">
++                      {formatNumber(entry.calories)} kcal
++                    </p>
++                  </div>
++                ))
++            )}
++          </div>
++        </section>
++      </div>
++    </AppShell>
++  );
++}
+diff --git a/app/layout.tsx b/app/layout.tsx
+index 02c8b9a39243ba87b43b70e4ccd8fa885d584ae8..213ec3120329b8470287e607b20f0fd87e1032d1 100644
+--- a/app/layout.tsx
++++ b/app/layout.tsx
+@@ -1,52 +1,55 @@
+ import type { Metadata } from "next";
+ import { Geist, Geist_Mono } from "next/font/google";
+ import "./globals.css";
+ 
+ const geistSans = Geist({
+   variable: "--font-geist-sans",
+   subsets: ["latin"],
+ });
+ 
+ const geistMono = Geist_Mono({
+   variable: "--font-geist-mono",
+   subsets: ["latin"],
+ });
+ 
+ export const metadata: Metadata = {
+   title: "Calorie Tracker",
+   description:
+     "Offline calorie tracking with daily targets, deficit analysis, and charts",
+ 
+   manifest: "/manifest.webmanifest",
+ 
+-  themeColor: "#0f172a",
+-
+   appleWebApp: {
+     capable: true,
+     statusBarStyle: "black-translucent",
+     title: "Calories",
+   },
+ 
+   icons: {
+     icon: [
++      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+       { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
+     ],
+     apple: "/icons/icon-192x192.png",
+   },
+ };
+ 
++export const viewport = {
++  themeColor: "#0f172a",
++};
++
+ export default function RootLayout({
+   children,
+ }: {
+   children: React.ReactNode;
+ }) {
+   return (
+     <html lang="en">
+       <body
+         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+       >
+         {children}
+       </body>
+     </html>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/app/onboarding/page.tsx b/app/onboarding/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..cd4c71c5d4152cb2f59d2f1b5f4b608861be8096
+--- /dev/null
++++ b/app/onboarding/page.tsx
+@@ -0,0 +1,42 @@
++"use client";
++
++import { useEffect } from "react";
++import { useRouter } from "next/navigation";
++import { db, PROFILE_ID, useProfile } from "@/src/db";
++import OnboardingWizard from "@/src/components/OnboardingWizard";
++
++export default function OnboardingPage() {
++  const router = useRouter();
++  const profile = useProfile();
++
++  useEffect(() => {
++    if (profile) {
++      router.replace("/today");
++    }
++  }, [profile, router]);
++
++  return (
++    <div className="min-h-screen bg-slate-950 text-slate-50">
++      <div className="mx-auto w-full max-w-3xl px-4 py-10">
++        <div className="mb-8 space-y-2">
++          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
++            Welcome
++          </p>
++          <h1 className="text-3xl font-semibold text-white">
++            Let’s set up your calorie targets
++          </h1>
++          <p className="text-sm text-slate-400">
++            This stays on your device and powers your daily targets, history, and
++            analytics.
++          </p>
++        </div>
++        <OnboardingWizard
++          onComplete={async (nextProfile) => {
++            await db.profile.put({ ...nextProfile, id: PROFILE_ID });
++            router.replace("/today");
++          }}
++        />
++      </div>
++    </div>
++  );
++}
+diff --git a/app/page.tsx b/app/page.tsx
+index 295f8fdf14fcfe6cccaa832133037157521b1890..43693c93878e10d183c20231c66421e4aed1011c 100644
+--- a/app/page.tsx
++++ b/app/page.tsx
+@@ -1,65 +1,25 @@
+-import Image from "next/image";
++"use client";
++
++import { useEffect } from "react";
++import { useRouter } from "next/navigation";
++import { useProfile } from "@/src/db";
+ 
+ export default function Home() {
++  const router = useRouter();
++  const profile = useProfile();
++
++  useEffect(() => {
++    if (profile === undefined) return;
++    if (profile) {
++      router.replace("/today");
++    } else {
++      router.replace("/onboarding");
++    }
++  }, [profile, router]);
++
+   return (
+-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
+-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
+-        <Image
+-          className="dark:invert"
+-          src="/next.svg"
+-          alt="Next.js logo"
+-          width={100}
+-          height={20}
+-          priority
+-        />
+-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
+-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
+-            To get started, edit the page.tsx file.
+-          </h1>
+-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
+-            Looking for a starting point or more instructions? Head over to{" "}
+-            <a
+-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+-              className="font-medium text-zinc-950 dark:text-zinc-50"
+-            >
+-              Templates
+-            </a>{" "}
+-            or the{" "}
+-            <a
+-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+-              className="font-medium text-zinc-950 dark:text-zinc-50"
+-            >
+-              Learning
+-            </a>{" "}
+-            center.
+-          </p>
+-        </div>
+-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+-          <a
+-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
+-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+-            target="_blank"
+-            rel="noopener noreferrer"
+-          >
+-            <Image
+-              className="dark:invert"
+-              src="/vercel.svg"
+-              alt="Vercel logomark"
+-              width={16}
+-              height={16}
+-            />
+-            Deploy Now
+-          </a>
+-          <a
+-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
+-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+-            target="_blank"
+-            rel="noopener noreferrer"
+-          >
+-            Documentation
+-          </a>
+-        </div>
+-      </main>
++    <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
++      <p className="text-sm text-slate-400">Loading your calorie tracker…</p>
+     </div>
+   );
+ }
+diff --git a/app/settings/page.tsx b/app/settings/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..47e0630861cb162ce79f89f1cb11a9c2efa670eb
+--- /dev/null
++++ b/app/settings/page.tsx
+@@ -0,0 +1,149 @@
++"use client";
++
++import { useEffect, useRef, useState } from "react";
++import { useRouter } from "next/navigation";
++import AppShell from "@/src/components/AppShell";
++import Modal from "@/src/components/Modal";
++import OnboardingWizard from "@/src/components/OnboardingWizard";
++import { db, PROFILE_ID, type Entry, type Profile, useProfile } from "@/src/db";
++
++const downloadJson = (filename: string, data: unknown) => {
++  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
++  const url = URL.createObjectURL(blob);
++  const anchor = document.createElement("a");
++  anchor.href = url;
++  anchor.download = filename;
++  anchor.click();
++  URL.revokeObjectURL(url);
++};
++
++export default function SettingsPage() {
++  const router = useRouter();
++  const profile = useProfile();
++  const [resetOpen, setResetOpen] = useState(false);
++  const fileInputRef = useRef<HTMLInputElement | null>(null);
++
++  useEffect(() => {
++    if (profile === null) {
++      router.replace("/onboarding");
++    }
++  }, [profile, router]);
++
++  if (!profile) {
++    return (
++      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
++        <p className="text-sm text-slate-400">Loading settings…</p>
++      </div>
++    );
++  }
++
++  const handleExport = async () => {
++    const entries = await db.entries.toArray();
++    downloadJson("calorie-tracker-export.json", {
++      profile,
++      entries,
++    });
++  };
++
++  const handleImport = async (file: File) => {
++    const text = await file.text();
++    const parsed = JSON.parse(text) as { profile?: Profile; entries?: Entry[] };
++    if (parsed.profile) {
++      await db.profile.put({ ...parsed.profile, id: PROFILE_ID });
++    }
++    if (parsed.entries) {
++      await db.entries.clear();
++      await db.entries.bulkAdd(parsed.entries);
++    }
++  };
++
++  return (
++    <AppShell title="Settings">
++      <div className="space-y-6">
++        <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
++          <h2 className="text-lg font-semibold text-white">Profile</h2>
++          <p className="text-sm text-slate-400">
++            Update your profile to recalculate BMR, TDEE, and daily targets.
++          </p>
++          <div className="mt-6">
++            <OnboardingWizard
++              initialValues={profile}
++              onComplete={async (nextProfile) => {
++                await db.profile.put({ ...nextProfile, id: PROFILE_ID });
++              }}
++            />
++          </div>
++        </section>
++
++        <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
++          <h2 className="text-lg font-semibold text-white">Data management</h2>
++          <p className="text-sm text-slate-400">
++            Export or restore your local data. Data is stored only in this browser.
++          </p>
++          <div className="mt-4 flex flex-wrap gap-3">
++            <button
++              onClick={handleExport}
++              className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200"
++            >
++              Export JSON
++            </button>
++            <button
++              onClick={() => fileInputRef.current?.click()}
++              className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200"
++            >
++              Import JSON
++            </button>
++            <button
++              onClick={() => setResetOpen(true)}
++              className="rounded-full border border-rose-500/70 px-4 py-2 text-sm text-rose-200"
++            >
++              Reset all data
++            </button>
++            <input
++              ref={fileInputRef}
++              type="file"
++              accept="application/json"
++              className="hidden"
++              onChange={async (event) => {
++                const file = event.target.files?.[0];
++                if (file) {
++                  await handleImport(file);
++                }
++                event.target.value = "";
++              }}
++            />
++          </div>
++        </section>
++      </div>
++
++      <Modal
++        open={resetOpen}
++        title="Reset all data"
++        onClose={() => setResetOpen(false)}
++      >
++        <p className="text-sm text-slate-300">
++          This will permanently delete your profile and all entries from this device.
++          This action cannot be undone.
++        </p>
++        <div className="mt-6 flex justify-end gap-3">
++          <button
++            onClick={() => setResetOpen(false)}
++            className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200"
++          >
++            Cancel
++          </button>
++          <button
++            onClick={async () => {
++              await db.profile.clear();
++              await db.entries.clear();
++              setResetOpen(false);
++            }}
++            className="rounded-full bg-rose-500 px-4 py-2 text-sm font-semibold text-white"
++          >
++            Reset
++          </button>
++        </div>
++      </Modal>
++    </AppShell>
++  );
++}
+diff --git a/app/today/page.tsx b/app/today/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..eec94a86898f0f6c81469f7bcc1b546d8238e165
+--- /dev/null
++++ b/app/today/page.tsx
+@@ -0,0 +1,247 @@
++"use client";
++
++import { useEffect, useMemo, useState } from "react";
++import { useRouter } from "next/navigation";
++import AppShell from "@/src/components/AppShell";
++import EntryForm, { type EntryFormValues } from "@/src/components/EntryForm";
++import Modal from "@/src/components/Modal";
++import ProgressBar from "@/src/components/ProgressBar";
++import StatCard from "@/src/components/StatCard";
++import { db, type Entry, useEntriesForDay, useProfile } from "@/src/db";
++import { formatNumber } from "@/src/lib/calculations";
++import { getLocalDayKey } from "@/src/lib/date";
++
++const buildDefaultEntry = (): EntryFormValues => ({
++  calories: 0,
++  createdAt: new Date().toISOString(),
++});
++
++export default function TodayPage() {
++  const router = useRouter();
++  const profile = useProfile();
++  const dayKey = getLocalDayKey(new Date());
++  const entries = useEntriesForDay(dayKey) ?? [];
++  const [open, setOpen] = useState(false);
++  const [editing, setEditing] = useState<Entry | null>(null);
++
++  const totals = useMemo(() => {
++    const totalCalories = entries.reduce((sum, entry) => sum + entry.calories, 0);
++    const macros = entries.reduce(
++      (sum, entry) => {
++        sum.protein += entry.protein ?? 0;
++        sum.carbs += entry.carbs ?? 0;
++        sum.fat += entry.fat ?? 0;
++        return sum;
++      },
++      { protein: 0, carbs: 0, fat: 0 },
++    );
++    return { totalCalories, macros };
++  }, [entries]);
++
++  useEffect(() => {
++    if (profile === null) {
++      router.replace("/onboarding");
++    }
++  }, [profile, router]);
++
++  if (!profile) {
++    return (
++      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
++        <p className="text-sm text-slate-400">Loading profile…</p>
++      </div>
++    );
++  }
++
++  const remaining = profile.targetCalories - totals.totalCalories;
++  const progress = (totals.totalCalories / profile.targetCalories) * 100;
++  const tdeeDelta = totals.totalCalories - profile.tdee;
++
++  const handleSave = async (values: EntryFormValues) => {
++    const entryDayKey = getLocalDayKey(new Date(values.createdAt));
++    const payload: Entry = {
++      ...values,
++      dayKey: entryDayKey,
++    };
++
++    if (editing?.id) {
++      await db.entries.update(editing.id, payload);
++    } else {
++      await db.entries.add(payload);
++    }
++    setOpen(false);
++    setEditing(null);
++  };
++
++  return (
++    <AppShell
++      title="Today"
++      action={
++        <span className="rounded-full border border-slate-800 px-3 py-1 text-xs text-slate-300">
++          {dayKey}
++        </span>
++      }
++    >
++      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
++        <section className="space-y-4">
++          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
++            <div className="flex items-center justify-between">
++              <div>
++                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
++                  Daily target
++                </p>
++                <p className="mt-2 text-3xl font-semibold text-white">
++                  {formatNumber(profile.targetCalories)} kcal
++                </p>
++              </div>
++              <div className="text-right">
++                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
++                  Consumed
++                </p>
++                <p className="mt-2 text-2xl font-semibold text-white">
++                  {formatNumber(totals.totalCalories)} kcal
++                </p>
++              </div>
++            </div>
++            <div className="mt-4">
++              <ProgressBar value={progress} />
++              <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-400">
++                <span>Remaining: {formatNumber(remaining)} kcal</span>
++                <span>
++                  {tdeeDelta >= 0 ? "Surplus" : "Deficit"}: {formatNumber(Math.abs(tdeeDelta))} kcal vs TDEE
++                </span>
++              </div>
++            </div>
++          </div>
++
++          <div className="grid gap-3 sm:grid-cols-3">
++            <StatCard
++              label="Protein"
++              value={`${formatNumber(totals.macros.protein)} g`}
++            />
++            <StatCard
++              label="Carbs"
++              value={`${formatNumber(totals.macros.carbs)} g`}
++            />
++            <StatCard label="Fat" value={`${formatNumber(totals.macros.fat)} g`} />
++          </div>
++
++          <div className="rounded-2xl border border-slate-800 bg-slate-900/70">
++            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
++              <h2 className="text-lg font-semibold text-white">Today’s entries</h2>
++              <button
++                onClick={() => {
++                  setEditing(null);
++                  setOpen(true);
++                }}
++                className="hidden rounded-full bg-emerald-400 px-4 py-2 text-xs font-semibold text-slate-950 sm:inline-block"
++              >
++                Add Entry
++              </button>
++            </div>
++            <div className="divide-y divide-slate-800">
++              {entries.length === 0 ? (
++                <div className="px-5 py-6 text-sm text-slate-400">
++                  No entries yet. Add your first meal or snack to get started.
++                </div>
++              ) : (
++                [...entries]
++                  .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
++                  .map((entry) => (
++                    <div key={entry.id} className="flex items-center justify-between px-5 py-4">
++                      <div>
++                        <p className="text-sm font-medium text-white">
++                          {entry.label ?? "Untitled entry"}
++                        </p>
++                        <p className="text-xs text-slate-400">
++                          {new Date(entry.createdAt).toLocaleTimeString("en-US", {
++                            hour: "numeric",
++                            minute: "2-digit",
++                          })}
++                        </p>
++                      </div>
++                      <div className="flex items-center gap-3">
++                        <p className="text-sm text-slate-200">
++                          {formatNumber(entry.calories)} kcal
++                        </p>
++                        <button
++                          onClick={() => {
++                            setEditing(entry);
++                            setOpen(true);
++                          }}
++                          className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300"
++                        >
++                          Edit
++                        </button>
++                        <button
++                          onClick={async () => {
++                            if (entry.id) {
++                              await db.entries.delete(entry.id);
++                            }
++                          }}
++                          className="rounded-full border border-rose-500/60 px-3 py-1 text-xs text-rose-200"
++                        >
++                          Delete
++                        </button>
++                      </div>
++                    </div>
++                  ))
++              )}
++            </div>
++          </div>
++        </section>
++
++        <aside className="space-y-4">
++          <StatCard label="BMR" value={`${formatNumber(profile.bmr)} kcal`} />
++          <StatCard label="TDEE" value={`${formatNumber(profile.tdee)} kcal`} />
++          <StatCard
++            label="Target"
++            value={`${formatNumber(profile.targetCalories)} kcal`}
++          />
++          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-xs text-slate-400">
++            Targets are based on your onboarding profile. Update them any time in
++            Settings.
++          </div>
++        </aside>
++      </div>
++
++      <button
++        onClick={() => {
++          setEditing(null);
++          setOpen(true);
++        }}
++        className="fixed bottom-20 right-4 rounded-full bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg sm:hidden"
++      >
++        Add Entry
++      </button>
++
++      <Modal
++        open={open}
++        title={editing ? "Edit entry" : "Add entry"}
++        onClose={() => {
++          setOpen(false);
++          setEditing(null);
++        }}
++      >
++        <EntryForm
++          initialValues={
++            editing
++              ? {
++                  label: editing.label,
++                  calories: editing.calories,
++                  protein: editing.protein,
++                  carbs: editing.carbs,
++                  fat: editing.fat,
++                  createdAt: editing.createdAt,
++                }
++              : buildDefaultEntry()
++          }
++          onCancel={() => {
++            setOpen(false);
++            setEditing(null);
++          }}
++          onSubmit={handleSave}
++        />
++      </Modal>
++    </AppShell>
++  );
++}
+diff --git a/next.config.ts b/next.config.ts
+index e9ffa3083ad279ecf95fd8eae59cb253e9a539c4..b3bbf871ec50824730e4848a42b008389149f7a9 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -1,7 +1,13 @@
+ import type { NextConfig } from "next";
++import withPWA from "next-pwa";
+ 
+ const nextConfig: NextConfig = {
+-  /* config options here */
++  reactStrictMode: true,
+ };
+ 
+-export default nextConfig;
++export default withPWA({
++  dest: "public",
++  register: true,
++  skipWaiting: true,
++  disable: process.env.NODE_ENV === "development",
++})(nextConfig);
+diff --git a/package.json b/package.json
+index 4cb996faeb4dbaf5d66139d3317832bd5ec9f8ab..0b8cbc044093f0998a3259804e4c88b78d5e265d 100644
+--- a/package.json
++++ b/package.json
+@@ -1,31 +1,31 @@
+ {
+   "name": "calorie-tracker",
+   "version": "0.1.0",
+   "private": true,
+   "scripts": {
+     "dev": "next dev",
+     "build": "next build",
+     "start": "next start",
+     "lint": "eslint"
+   },
+   "dependencies": {
+     "dexie": "^4.2.1",
+     "dexie-react-hooks": "^4.2.0",
+-    "next": "16.1.6",
++    "next": "15.1.6",
+     "next-pwa": "^5.6.0",
+     "react": "19.2.3",
+     "react-dom": "19.2.3",
+     "recharts": "^3.7.0",
+     "zod": "^4.3.6"
+   },
+   "devDependencies": {
+     "@tailwindcss/postcss": "^4",
+     "@types/node": "^20",
+     "@types/react": "^19",
+     "@types/react-dom": "^19",
+     "eslint": "^9",
+-    "eslint-config-next": "16.1.6",
++    "eslint-config-next": "15.1.6",
+     "tailwindcss": "^4",
+     "typescript": "^5"
+   }
+ }
+diff --git a/public/icons/icon-192x192.png b/public/icons/icon-192x192.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..b724ee93105fa577811ca9b4fb0648b6e7f55eb3
+GIT binary patch
+literal 27583
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/public/manifest.webmanifest b/public/manifest.webmanifest
+index 48a4efad3fa0f8e9da5d72f8657b0c555ebc1e3c..4e2466f6bd13a409f911e801a851e56a7f3dcf7d 100644
+--- a/public/manifest.webmanifest
++++ b/public/manifest.webmanifest
+@@ -1,21 +1,27 @@
+ {
+     "name": "Calorie Tracker",
+     "short_name": "Calories",
+     "description": "Offline calorie tracking with daily targets, deficit analysis, and charts",
+     "id": "/",
+     "start_url": "/",
+     "scope": "/",
+     "display": "standalone",
+     "display_override": ["standalone", "fullscreen"],
+     "background_color": "#0f172a",
+     "theme_color": "#0f172a",
+     "orientation": "portrait",
+     "icons": [
++      {
++        "src": "/icons/icon-192x192.png",
++        "sizes": "192x192",
++        "type": "image/png",
++        "purpose": "any maskable"
++      },
+       {
+         "src": "/icons/icon-512x512.png",
+         "sizes": "512x512",
+         "type": "image/png",
+         "purpose": "any maskable"
+       }
+     ]
+-  }
+\ No newline at end of file
++  }
+diff --git a/src/components/AppShell.tsx b/src/components/AppShell.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..e8b88420604afc9b9a062a0351e6482a9a9aa65a
+--- /dev/null
++++ b/src/components/AppShell.tsx
+@@ -0,0 +1,65 @@
++"use client";
++
++import Link from "next/link";
++import { usePathname } from "next/navigation";
++
++const navItems = [
++  { href: "/today", label: "Today" },
++  { href: "/history", label: "History" },
++  { href: "/analytics", label: "Analytics" },
++  { href: "/settings", label: "Settings" },
++];
++
++export default function AppShell({
++  children,
++  title,
++  action,
++}: {
++  children: React.ReactNode;
++  title: string;
++  action?: React.ReactNode;
++}) {
++  const pathname = usePathname();
++
++  return (
++    <div className="min-h-screen bg-slate-950 text-slate-50">
++      <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
++        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4">
++          <div>
++            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
++              Calorie Tracker
++            </p>
++            <h1 className="text-xl font-semibold text-white">{title}</h1>
++          </div>
++          {action}
++        </div>
++      </header>
++
++      <main className="mx-auto w-full max-w-5xl px-4 pb-20 pt-6">
++        {children}
++      </main>
++
++      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-800 bg-slate-950/95 backdrop-blur">
++        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-2">
++          {navItems.map((item) => {
++            const isActive = pathname === item.href;
++            return (
++              <Link
++                key={item.href}
++                href={item.href}
++                className={`flex flex-1 flex-col items-center gap-1 rounded-lg px-2 py-2 text-xs font-medium transition ${
++                  isActive
++                    ? "text-white"
++                    : "text-slate-400 hover:text-slate-200"
++                }`}
++              >
++                <span className="h-1.5 w-1.5 rounded-full bg-current" />
++                {item.label}
++              </Link>
++            );
++          })}
++        </div>
++      </nav>
++    </div>
++  );
++}
+diff --git a/src/components/EntryForm.tsx b/src/components/EntryForm.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..19262f67917ade207d3a9e19d32f2760662d9926
+--- /dev/null
++++ b/src/components/EntryForm.tsx
+@@ -0,0 +1,154 @@
++"use client";
++
++import { useState } from "react";
++import type { Entry } from "@/src/db";
++import { entrySchema } from "@/src/lib/validation";
++
++export type EntryFormValues = Omit<Entry, "id" | "dayKey">;
++
++const numberValue = (value: string) => (value === "" ? undefined : Number(value));
++
++export default function EntryForm({
++  initialValues,
++  onSubmit,
++  onCancel,
++}: {
++  initialValues: EntryFormValues;
++  onSubmit: (values: EntryFormValues) => void;
++  onCancel: () => void;
++}) {
++  const [form, setForm] = useState(() => ({
++    label: initialValues.label ?? "",
++    calories: initialValues.calories.toString(),
++    protein: initialValues.protein?.toString() ?? "",
++    carbs: initialValues.carbs?.toString() ?? "",
++    fat: initialValues.fat?.toString() ?? "",
++    createdAt: initialValues.createdAt,
++  }));
++  const [error, setError] = useState<string | null>(null);
++
++  const handleChange = (field: keyof typeof form) =>
++    (event: React.ChangeEvent<HTMLInputElement>) => {
++      setForm((prev) => ({ ...prev, [field]: event.target.value }));
++    };
++
++  const handleSubmit = (event: React.FormEvent) => {
++    event.preventDefault();
++    const payload = {
++      label: form.label.trim() || undefined,
++      calories: Number(form.calories),
++      protein: numberValue(form.protein),
++      carbs: numberValue(form.carbs),
++      fat: numberValue(form.fat),
++      createdAt: form.createdAt,
++    };
++
++    const result = entrySchema.safeParse(payload);
++    if (!result.success) {
++      setError("Please provide valid entry details.");
++      return;
++    }
++
++    setError(null);
++    onSubmit(result.data);
++  };
++
++  return (
++    <form onSubmit={handleSubmit} className="space-y-4">
++      {error ? <p className="text-sm text-rose-300">{error}</p> : null}
++      <div>
++        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++          Label
++        </label>
++        <input
++          value={form.label}
++          onChange={handleChange("label")}
++          placeholder="e.g. Greek yogurt"
++          className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++        />
++      </div>
++      <div>
++        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++          Calories
++        </label>
++        <input
++          type="number"
++          min="0"
++          value={form.calories}
++          onChange={handleChange("calories")}
++          className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++          required
++        />
++      </div>
++      <div className="grid gap-3 sm:grid-cols-3">
++        <div>
++          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++            Protein (g)
++          </label>
++          <input
++            type="number"
++            min="0"
++            value={form.protein}
++            onChange={handleChange("protein")}
++            className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++          />
++        </div>
++        <div>
++          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++            Carbs (g)
++          </label>
++          <input
++            type="number"
++            min="0"
++            value={form.carbs}
++            onChange={handleChange("carbs")}
++            className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++          />
++        </div>
++        <div>
++          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++            Fat (g)
++          </label>
++          <input
++            type="number"
++            min="0"
++            value={form.fat}
++            onChange={handleChange("fat")}
++            className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++          />
++        </div>
++      </div>
++      <div>
++        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++          Time
++        </label>
++        <input
++          type="datetime-local"
++          value={form.createdAt.slice(0, 16)}
++          onChange={(event) =>
++            setForm((prev) => ({
++              ...prev,
++              createdAt: new Date(event.target.value).toISOString(),
++            }))
++          }
++          className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++        />
++      </div>
++      <div className="flex justify-end gap-3">
++        <button
++          type="button"
++          onClick={onCancel}
++          className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200"
++        >
++          Cancel
++        </button>
++        <button
++          type="submit"
++          className="rounded-full bg-emerald-400 px-5 py-2 text-sm font-semibold text-slate-950"
++        >
++          Save Entry
++        </button>
++      </div>
++    </form>
++  );
++}
+diff --git a/src/components/Modal.tsx b/src/components/Modal.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..6ddc15bf780c6850ca09ca4dfcc5765a9d4fa03d
+--- /dev/null
++++ b/src/components/Modal.tsx
+@@ -0,0 +1,32 @@
++"use client";
++
++export default function Modal({
++  open,
++  title,
++  onClose,
++  children,
++}: {
++  open: boolean;
++  title: string;
++  onClose: () => void;
++  children: React.ReactNode;
++}) {
++  if (!open) return null;
++
++  return (
++    <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/70 p-4 sm:items-center">
++      <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 shadow-xl">
++        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
++          <h2 className="text-lg font-semibold text-white">{title}</h2>
++          <button
++            onClick={onClose}
++            className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:border-slate-500"
++          >
++            Close
++          </button>
++        </div>
++        <div className="px-5 py-4">{children}</div>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/components/OnboardingWizard.tsx b/src/components/OnboardingWizard.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..c34bda0b94651a8886b7477f138bb53e90b1ae1b
+--- /dev/null
++++ b/src/components/OnboardingWizard.tsx
+@@ -0,0 +1,242 @@
++"use client";
++
++import { useState } from "react";
++import type { ActivityLevel, Goal, Profile, Sex } from "@/src/db";
++import { buildProfile } from "@/src/lib/calculations";
++import { profileSchema } from "@/src/lib/validation";
++
++const activityOptions: { value: ActivityLevel; label: string }[] = [
++  { value: "sedentary", label: "Sedentary" },
++  { value: "light", label: "Light" },
++  { value: "moderate", label: "Moderate" },
++  { value: "active", label: "Active" },
++  { value: "very-active", label: "Very Active" },
++];
++
++const goalOptions: { value: Goal; label: string }[] = [
++  { value: "lose", label: "Lose weight" },
++  { value: "maintain", label: "Maintain" },
++  { value: "gain", label: "Gain weight" },
++];
++
++const paceOptions = [0.25, 0.5, 0.75, 1];
++
++const steps = ["Basics", "Activity", "Goal"] as const;
++
++export default function OnboardingWizard({
++  onComplete,
++  initialValues,
++}: {
++  onComplete: (profile: Profile) => void;
++  initialValues?: Profile;
++}) {
++  const [stepIndex, setStepIndex] = useState(0);
++  const [error, setError] = useState<string | null>(null);
++  const [form, setForm] = useState(() => ({
++    sex: (initialValues?.sex ?? "female") as Sex,
++    age: initialValues?.age ?? 30,
++    heightCm: initialValues?.heightCm ?? 165,
++    weightKg: initialValues?.weightKg ?? 70,
++    activityLevel: initialValues?.activityLevel ?? "moderate",
++    goal: initialValues?.goal ?? "maintain",
++    pace: initialValues?.pace ?? 0.5,
++  }));
++
++  const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
++    setForm((prev) => ({ ...prev, [key]: value }));
++
++  const handleNext = () => {
++    setStepIndex((prev) => Math.min(prev + 1, steps.length - 1));
++  };
++
++  const handleBack = () => {
++    setStepIndex((prev) => Math.max(prev - 1, 0));
++  };
++
++  const handleSubmit = () => {
++    const result = profileSchema.safeParse({
++      ...form,
++      age: Number(form.age),
++      heightCm: Number(form.heightCm),
++      weightKg: Number(form.weightKg),
++      pace: Number(form.pace),
++    });
++
++    if (!result.success) {
++      setError("Please double-check your inputs.");
++      return;
++    }
++
++    setError(null);
++    onComplete(buildProfile(result.data));
++  };
++
++  return (
++    <div className="space-y-6">
++      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
++        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
++          Step {stepIndex + 1} of {steps.length}
++        </p>
++        <h2 className="mt-2 text-xl font-semibold text-white">
++          {steps[stepIndex]}
++        </h2>
++        <p className="mt-2 text-sm text-slate-400">
++          Let’s tailor your calorie targets to fit your goals. You can update this later
++          from settings.
++        </p>
++      </div>
++
++      {error ? <p className="text-sm text-rose-300">{error}</p> : null}
++
++      {stepIndex === 0 ? (
++        <div className="grid gap-4 sm:grid-cols-2">
++          <div>
++            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++              Sex
++            </label>
++            <select
++              value={form.sex}
++              onChange={(event) => update("sex", event.target.value as Sex)}
++              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++            >
++              <option value="female">Female</option>
++              <option value="male">Male</option>
++            </select>
++          </div>
++          <div>
++            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++              Age
++            </label>
++            <input
++              type="number"
++              min="13"
++              value={form.age}
++              onChange={(event) => update("age", Number(event.target.value))}
++              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++            />
++          </div>
++          <div>
++            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++              Height (cm)
++            </label>
++            <input
++              type="number"
++              min="120"
++              value={form.heightCm}
++              onChange={(event) => update("heightCm", Number(event.target.value))}
++              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++            />
++          </div>
++          <div>
++            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++              Weight (kg)
++            </label>
++            <input
++              type="number"
++              min="30"
++              value={form.weightKg}
++              onChange={(event) => update("weightKg", Number(event.target.value))}
++              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++            />
++          </div>
++        </div>
++      ) : null}
++
++      {stepIndex === 1 ? (
++        <div className="space-y-4">
++          <div>
++            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++              Activity level
++            </label>
++            <select
++              value={form.activityLevel}
++              onChange={(event) =>
++                update("activityLevel", event.target.value as ActivityLevel)
++              }
++              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++            >
++              {activityOptions.map((option) => (
++                <option key={option.value} value={option.value}>
++                  {option.label}
++                </option>
++              ))}
++            </select>
++            <p className="mt-2 text-xs text-slate-400">
++              This helps estimate how many calories you burn on an average day.
++            </p>
++          </div>
++        </div>
++      ) : null}
++
++      {stepIndex === 2 ? (
++        <div className="space-y-4">
++          <div>
++            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++              Goal
++            </label>
++            <select
++              value={form.goal}
++              onChange={(event) => update("goal", event.target.value as Goal)}
++              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++            >
++              {goalOptions.map((option) => (
++                <option key={option.value} value={option.value}>
++                  {option.label}
++                </option>
++              ))}
++            </select>
++          </div>
++          <div>
++            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
++              Weekly pace
++            </label>
++            <select
++              value={form.pace}
++              onChange={(event) => update("pace", Number(event.target.value))}
++              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
++            >
++              {paceOptions.map((pace) => (
++                <option key={pace} value={pace}>
++                  {form.goal === "gain"
++                    ? "Gain"
++                    : form.goal === "lose"
++                      ? "Lose"
++                      : "Maintain"}{" "}
++                  {pace} kg/week
++                </option>
++              ))}
++            </select>
++            <p className="mt-2 text-xs text-slate-400">
++              We’ll translate this into a daily calorie adjustment.
++            </p>
++          </div>
++        </div>
++      ) : null}
++
++      <div className="flex items-center justify-between">
++        <button
++          onClick={handleBack}
++          disabled={stepIndex === 0}
++          className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 disabled:opacity-40"
++        >
++          Back
++        </button>
++        {stepIndex < steps.length - 1 ? (
++          <button
++            onClick={handleNext}
++            className="rounded-full bg-white px-6 py-2 text-sm font-semibold text-slate-900"
++          >
++            Continue
++          </button>
++        ) : (
++          <button
++            onClick={handleSubmit}
++            className="rounded-full bg-emerald-400 px-6 py-2 text-sm font-semibold text-slate-950"
++          >
++            Save Profile
++          </button>
++        )}
++      </div>
++    </div>
++  );
++}
+diff --git a/src/components/ProgressBar.tsx b/src/components/ProgressBar.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..8aaae06b7ae8a150174877bd24f83ad185b96257
+--- /dev/null
++++ b/src/components/ProgressBar.tsx
+@@ -0,0 +1,15 @@
++export default function ProgressBar({
++  value,
++}: {
++  value: number;
++}) {
++  const clamped = Math.min(100, Math.max(0, value));
++  return (
++    <div className="h-3 w-full rounded-full bg-slate-800">
++      <div
++        className="h-3 rounded-full bg-emerald-400 transition-all"
++        style={{ width: `${clamped}%` }}
++      />
++    </div>
++  );
++}
+diff --git a/src/components/StatCard.tsx b/src/components/StatCard.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..de426c765073a08f241e8e74924312d22ab5da60
+--- /dev/null
++++ b/src/components/StatCard.tsx
+@@ -0,0 +1,19 @@
++export default function StatCard({
++  label,
++  value,
++  helper,
++}: {
++  label: string;
++  value: string | number;
++  helper?: string;
++}) {
++  return (
++    <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
++      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
++        {label}
++      </p>
++      <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
++      {helper ? <p className="mt-1 text-xs text-slate-400">{helper}</p> : null}
++    </div>
++  );
++}
+diff --git a/src/db/index.ts b/src/db/index.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..c1de309da327b6c06171b4272ff7105a24055d5e
+--- /dev/null
++++ b/src/db/index.ts
+@@ -0,0 +1,68 @@
++import Dexie, { type Table } from "dexie";
++import { useLiveQuery } from "dexie-react-hooks";
++
++export type Sex = "male" | "female";
++export type ActivityLevel =
++  | "sedentary"
++  | "light"
++  | "moderate"
++  | "active"
++  | "very-active";
++export type Goal = "lose" | "maintain" | "gain";
++
++export type Profile = {
++  id: "profile";
++  sex: Sex;
++  age: number;
++  heightCm: number;
++  weightKg: number;
++  activityLevel: ActivityLevel;
++  goal: Goal;
++  pace: number;
++  bmr: number;
++  tdee: number;
++  targetCalories: number;
++  createdAt: string;
++  updatedAt: string;
++};
++
++export type Entry = {
++  id?: number;
++  createdAt: string;
++  dayKey: string;
++  label?: string;
++  calories: number;
++  protein?: number;
++  carbs?: number;
++  fat?: number;
++};
++
++class CalorieTrackerDB extends Dexie {
++  profile!: Table<Profile, string>;
++  entries!: Table<Entry, number>;
++
++  constructor() {
++    super("CalorieTrackerDB");
++    this.version(1).stores({
++      profile: "id",
++      entries: "++id, dayKey, createdAt",
++    });
++  }
++}
++
++export const db = new CalorieTrackerDB();
++export const PROFILE_ID = "profile" as const;
++
++export const useProfile = () =>
++  useLiveQuery(async () => (await db.profile.get(PROFILE_ID)) ?? null);
++
++export const useEntriesForDay = (dayKey: string) =>
++  useLiveQuery(() => db.entries.where("dayKey").equals(dayKey).toArray(), [
++    dayKey,
++  ]);
++
++export const useEntriesBetweenDays = (start: string, end: string) =>
++  useLiveQuery(
++    () => db.entries.where("dayKey").between(start, end, true, true).toArray(),
++    [start, end],
++  );
+diff --git a/src/lib/calculations.ts b/src/lib/calculations.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..dd90d12fc3ae13b462505d09782ab7099a692626
+--- /dev/null
++++ b/src/lib/calculations.ts
+@@ -0,0 +1,67 @@
++import type { ActivityLevel, Goal, Profile, Sex } from "@/src/db";
++
++const activityMultipliers: Record<ActivityLevel, number> = {
++  sedentary: 1.2,
++  light: 1.375,
++  moderate: 1.55,
++  active: 1.725,
++  "very-active": 1.9,
++};
++
++const paceAdjustments: Record<number, number> = {
++  0.25: 275,
++  0.5: 550,
++  0.75: 825,
++  1: 1100,
++};
++
++export const computeBmr = (sex: Sex, weightKg: number, heightCm: number, age: number) => {
++  const base = 10 * weightKg + 6.25 * heightCm - 5 * age;
++  return sex === "male" ? base + 5 : base - 161;
++};
++
++export const computeTdee = (bmr: number, activityLevel: ActivityLevel) =>
++  bmr * activityMultipliers[activityLevel];
++
++export const computeTargetCalories = (
++  tdee: number,
++  goal: Goal,
++  pace: number,
++) => {
++  if (goal === "maintain") return tdee;
++  const adjustment = paceAdjustments[pace] ?? pace * 7700 / 7;
++  return goal === "lose" ? tdee - adjustment : tdee + adjustment;
++};
++
++export const buildProfile = (input: Omit<Profile, "id" | "bmr" | "tdee" | "targetCalories" | "createdAt" | "updatedAt">) => {
++  const bmr = computeBmr(input.sex, input.weightKg, input.heightCm, input.age);
++  const tdee = computeTdee(bmr, input.activityLevel);
++  const targetCalories = computeTargetCalories(tdee, input.goal, input.pace);
++  const now = new Date().toISOString();
++  return {
++    ...input,
++    id: "profile" as const,
++    bmr: Math.round(bmr),
++    tdee: Math.round(tdee),
++    targetCalories: Math.round(targetCalories),
++    createdAt: now,
++    updatedAt: now,
++  };
++};
++
++export const updateProfile = (profile: Profile, updates: Partial<Profile>) => {
++  const merged = { ...profile, ...updates };
++  const bmr = computeBmr(merged.sex, merged.weightKg, merged.heightCm, merged.age);
++  const tdee = computeTdee(bmr, merged.activityLevel);
++  const targetCalories = computeTargetCalories(tdee, merged.goal, merged.pace);
++  return {
++    ...merged,
++    bmr: Math.round(bmr),
++    tdee: Math.round(tdee),
++    targetCalories: Math.round(targetCalories),
++    updatedAt: new Date().toISOString(),
++  };
++};
++
++export const formatNumber = (value: number) =>
++  new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
+diff --git a/src/lib/date.ts b/src/lib/date.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..f929eb75b604d8cc3d15a6651217e700e36e8578
+--- /dev/null
++++ b/src/lib/date.ts
+@@ -0,0 +1,38 @@
++export const getDayKey = (date: Date) =>
++  date.toISOString().slice(0, 10);
++
++export const getLocalDayKey = (date: Date) => {
++  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
++  return offsetDate.toISOString().slice(0, 10);
++};
++
++export const formatDay = (dayKey: string) => {
++  const date = new Date(`${dayKey}T00:00:00`);
++  return new Intl.DateTimeFormat("en-US", {
++    weekday: "short",
++    month: "short",
++    day: "numeric",
++  }).format(date);
++};
++
++export const formatLongDate = (dayKey: string) => {
++  const date = new Date(`${dayKey}T00:00:00`);
++  return new Intl.DateTimeFormat("en-US", {
++    weekday: "long",
++    month: "long",
++    day: "numeric",
++    year: "numeric",
++  }).format(date);
++};
++
++export const subtractDays = (dayKey: string, days: number) => {
++  const date = new Date(`${dayKey}T00:00:00`);
++  date.setDate(date.getDate() - days);
++  return getLocalDayKey(date);
++};
++
++export const addDays = (dayKey: string, days: number) => {
++  const date = new Date(`${dayKey}T00:00:00`);
++  date.setDate(date.getDate() + days);
++  return getLocalDayKey(date);
++};
+diff --git a/src/lib/validation.ts b/src/lib/validation.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..1785304ca47eb92601a93686f27eab219eb66e50
+--- /dev/null
++++ b/src/lib/validation.ts
+@@ -0,0 +1,26 @@
++import { z } from "zod";
++
++export const profileSchema = z.object({
++  sex: z.enum(["male", "female"]),
++  age: z.number().int().min(13).max(120),
++  heightCm: z.number().min(120).max(230),
++  weightKg: z.number().min(30).max(250),
++  activityLevel: z.enum([
++    "sedentary",
++    "light",
++    "moderate",
++    "active",
++    "very-active",
++  ]),
++  goal: z.enum(["lose", "maintain", "gain"]),
++  pace: z.number().min(0.1).max(1),
++});
++
++export const entrySchema = z.object({
++  label: z.string().max(60).optional(),
++  calories: z.number().min(0),
++  protein: z.number().min(0).optional(),
++  carbs: z.number().min(0).optional(),
++  fat: z.number().min(0).optional(),
++  createdAt: z.string(),
++});
