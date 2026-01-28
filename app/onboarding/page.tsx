@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 import { db, Profile } from "@/src/db";
 import { calculateBmr, calculateTargetCalories, calculateTdee, formatNumber } from "@/src/lib/calculations";
@@ -26,6 +26,11 @@ export default function OnboardingPage() {
   const [activityLevel, setActivityLevel] = useState<Profile["activityLevel"]>("moderate");
   const [goal, setGoal] = useState<Profile["goal"]>("maintain");
   const [pace, setPace] = useState(0.5);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const bmr = useMemo(
     () => calculateBmr({ sex, age, heightCm, weightKg }),
@@ -58,8 +63,16 @@ export default function OnboardingPage() {
     router.replace("/today");
   };
 
+  if (!mounted) {
+    return (
+      <div style={{ padding: "24px", textAlign: "center" }}>
+        <p style={{ color: "#475569" }}>Loading...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6" style={{ minHeight: "200px" }}>
       <div>
         <p className="text-sm uppercase tracking-widest text-emerald-500">Welcome</p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-900">
