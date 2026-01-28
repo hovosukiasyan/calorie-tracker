@@ -1,38 +1,16 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import Link from "next/link";
+
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Calorie Tracker",
-  description:
-    "Offline calorie tracking with daily targets, deficit analysis, and charts",
-
+  description: "Track calories offline with a privacy-first PWA.",
   manifest: "/manifest.webmanifest",
+};
 
+export const viewport: Viewport = {
   themeColor: "#0f172a",
-
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Calories",
-  },
-
-  icons: {
-    icon: [
-      { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: "/icons/icon-192x192.png",
-  },
 };
 
 export default function RootLayout({
@@ -42,10 +20,31 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body className="min-h-screen bg-slate-50 text-slate-900">
+        <div className="mx-auto flex min-h-screen max-w-5xl flex-col">
+          <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+            <nav className="flex items-center justify-between px-4 py-3">
+              <Link href="/today" className="text-lg font-semibold text-slate-900">
+                Calorie Tracker
+              </Link>
+              <div className="flex items-center gap-3 text-sm font-medium text-slate-600">
+                <Link href="/today" className="hover:text-slate-900">
+                  Today
+                </Link>
+                <Link href="/history" className="hover:text-slate-900">
+                  History
+                </Link>
+                <Link href="/analytics" className="hover:text-slate-900">
+                  Analytics
+                </Link>
+                <Link href="/settings" className="hover:text-slate-900">
+                  Settings
+                </Link>
+              </div>
+            </nav>
+          </header>
+          <main className="flex-1 px-4 py-6">{children}</main>
+        </div>
       </body>
     </html>
   );
