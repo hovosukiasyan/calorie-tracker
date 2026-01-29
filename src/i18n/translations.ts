@@ -97,6 +97,12 @@ export type I18nKey =
   | "analytics.sections.last14Days"
   | "analytics.chart.target"
   | "analytics.chart.delta"
+  | "analytics.period.label"
+  | "analytics.period.week"
+  | "analytics.period.month"
+  | "analytics.period.all"
+  | "analytics.period.selectWeek"
+  | "analytics.period.selectMonth"
   | "settings.title"
   | "settings.loading"
   | "settings.profile.title"
@@ -214,6 +220,12 @@ export const translations: Record<Lang, Dict> = {
     "analytics.sections.last14Days": "Last 14 days vs target",
     "analytics.chart.target": "Target",
     "analytics.chart.delta": "Delta",
+    "analytics.period.label": "Period",
+    "analytics.period.week": "Week",
+    "analytics.period.month": "Month",
+    "analytics.period.all": "All time",
+    "analytics.period.selectWeek": "Select week",
+    "analytics.period.selectMonth": "Select month",
     "settings.title": "Settings",
     "settings.loading": "Loading settings…",
     "settings.profile.title": "Profile",
@@ -332,6 +344,12 @@ export const translations: Record<Lang, Dict> = {
     "analytics.sections.last14Days": "Последние 14 дней относительно цели",
     "analytics.chart.target": "Цель",
     "analytics.chart.delta": "Разница",
+    "analytics.period.label": "Период",
+    "analytics.period.week": "Неделя",
+    "analytics.period.month": "Месяц",
+    "analytics.period.all": "За всё время",
+    "analytics.period.selectWeek": "Выберите неделю",
+    "analytics.period.selectMonth": "Выберите месяц",
     "settings.title": "Настройки",
     "settings.loading": "Загрузка настроек…",
     "settings.profile.title": "Профиль",

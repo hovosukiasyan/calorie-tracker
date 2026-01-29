@@ -20,6 +20,8 @@ type BasePoint = {
 type WeeklyPoint = BasePoint & { calories: number };
 type RollingPoint = BasePoint & { average: number };
 type DeltaPoint = BasePoint & { calories: number };
+type DeficitDailyPoint = BasePoint & { deficit: number };
+type DeficitTotalPoint = BasePoint & { totalDeficit: number };
 
 export default function AnalyticsCharts(props: {
   variant: "weekly";
@@ -34,6 +36,12 @@ export default function AnalyticsCharts(props: {
   data: DeltaPoint[];
   targetCalories: number;
   deltaLabel: string;
+} | {
+  variant: "deficitDaily";
+  data: DeficitDailyPoint[];
+} | {
+  variant: "deficitTotal";
+  data: DeficitTotalPoint[];
 }) {
   const tooltipStyle = { background: "#0f172a", border: "1px solid #334155" };
 
@@ -65,7 +73,7 @@ export default function AnalyticsCharts(props: {
             <Legend />
             <Line type="monotone" dataKey="average" stroke="#38bdf8" strokeWidth={2} />
           </LineChart>
-        ) : (
+        ) : props.variant === "delta" ? (
           <BarChart
             data={props.data.map((item) => ({
               ...item,
@@ -78,6 +86,24 @@ export default function AnalyticsCharts(props: {
             <Tooltip contentStyle={tooltipStyle} />
             <Legend />
             <Bar dataKey="delta" fill="#f97316" name={props.deltaLabel} />
+          </BarChart>
+        ) : props.variant === "deficitTotal" ? (
+          <LineChart data={props.data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+            <XAxis dataKey="label" stroke="#94a3b8" />
+            <YAxis stroke="#94a3b8" />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend />
+            <Line type="monotone" dataKey="totalDeficit" stroke="#f97316" strokeWidth={2} />
+          </LineChart>
+        ) : (
+          <BarChart data={props.data}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+            <XAxis dataKey="label" stroke="#94a3b8" />
+            <YAxis stroke="#94a3b8" />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend />
+            <Bar dataKey="deficit" fill="#34d399" name="Deficit" />
           </BarChart>
         )}
       </ResponsiveContainer>

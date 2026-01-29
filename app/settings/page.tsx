@@ -26,12 +26,32 @@ export default function SettingsPage() {
   const { t } = useI18n();
   const [resetOpen, setResetOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [deficitForm, setDeficitForm] = useState(() => ({
+    goalKg: "",
+    kcalPerKg: "",
+    useChange: false,
+    targetBefore: "",
+    targetAfter: "",
+    changeDay: "",
+  }));
 
   useEffect(() => {
     if (profile === null) {
       router.replace("/onboarding");
     }
   }, [profile, router]);
+
+  useEffect(() => {
+    if (!profile) return;
+    setDeficitForm({
+      goalKg: String(profile.deficitGoalKg ?? 10),
+      kcalPerKg: String(profile.deficitKcalPerKg ?? 7700),
+      useChange: Boolean(profile.deficitUseTargetChange ?? false),
+      targetBefore: String(profile.deficitTargetBefore ?? profile.targetCalories),
+      targetAfter: String(profile.deficitTargetAfter ?? profile.targetCalories),
+      changeDay: String(profile.deficitChangeDay ?? 43),
+    });
+  }, [profile]);
 
   if (!profile) {
     return (
@@ -61,6 +81,20 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveDeficitSettings = async () => {
+    const next: Profile = {
+      ...profile,
+      deficitGoalKg: Number(deficitForm.goalKg) || 10,
+      deficitKcalPerKg: Number(deficitForm.kcalPerKg) || 7700,
+      deficitUseTargetChange: Boolean(deficitForm.useChange),
+      deficitTargetBefore: Number(deficitForm.targetBefore) || profile.targetCalories,
+      deficitTargetAfter: Number(deficitForm.targetAfter) || profile.targetCalories,
+      deficitChangeDay: Math.max(1, Number(deficitForm.changeDay) || 43),
+      updatedAt: new Date().toISOString(),
+    };
+    await db.profile.put({ ...next, id: PROFILE_ID });
+  };
+
   return (
     <AppShell title={t("settings.title")}>
       <div className="space-y-6">
@@ -73,9 +107,141 @@ export default function SettingsPage() {
             <OnboardingWizard
               initialValues={profile}
               onComplete={async (nextProfile) => {
-                await db.profile.put({ ...nextProfile, id: PROFILE_ID });
+                // Preserve deficit settings when updating profile.
+                await db.profile.put({
+                  ...nextProfile,
+                  id: PROFILE_ID,
+                  deficitGoalKg: profile.deficitGoalKg,
+                  deficitKcalPerKg: profile.deficitKcalPerKg,
+                  deficitUseTargetChange: profile.deficitUseTargetChange,
+                  deficitTargetBefore: profile.deficitTargetBefore,
+                  deficitTargetAfter: profile.deficitTargetAfter,
+                  deficitChangeDay: profile.deficitChangeDay,
+                });
               }}
             />
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+          <h2 className="text-lg font-semibold text-white">Deficit tracking</h2>
+          <p className="text-sm text-slate-400">
+            Configure your target calories and goal to estimate weight loss.
+          </p>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Goal weight loss (kg)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={deficitForm.goalKg}
+                onChange={(e) => setDeficitForm((p) => ({ ...p, goalKg: e.target.value }))}
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                kcal per 1 kg
+              </label>
+              <input
+                type="number"
+                min="1000"
+                step="100"
+                value={deficitForm.kcalPerKg}
+                onChange={(e) => setDeficitForm((p) => ({ ...p, kcalPerKg: e.target.value }))}
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
+              />
+              <p className="mt-2 text-xs text-slate-500">Default is 7700 kcal/kg.</p>
+            </div>
+          </div>
+
+          <div className="mt-5 flex items-center gap-3">
+            <input
+              id="use-change"
+              type="checkbox"
+              checked={deficitForm.useChange}
+              onChange={(e) => setDeficitForm((p) => ({ ...p, useChange: e.target.checked }))}
+              className="h-4 w-4 rounded border-slate-600 bg-slate-950"
+            />
+            <label htmlFor="use-change" className="text-sm text-slate-300">
+              Use a target change day (before/after targets)
+            </label>
+          </div>
+
+          {deficitForm.useChange ? (
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Target before (kcal)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={deficitForm.targetBefore}
+                  onChange={(e) => setDeficitForm((p) => ({ ...p, targetBefore: e.target.value }))}
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Target after (kcal)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={deficitForm.targetAfter}
+                  onChange={(e) => setDeficitForm((p) => ({ ...p, targetAfter: e.target.value }))}
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Change on day #
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={deficitForm.changeDay}
+                  onChange={(e) => setDeficitForm((p) => ({ ...p, changeDay: e.target.value }))}
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Daily target (kcal)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={deficitForm.targetAfter}
+                onChange={(e) =>
+                  setDeficitForm((p) => ({
+                    ...p,
+                    targetAfter: e.target.value,
+                    targetBefore: e.target.value,
+                  }))
+                }
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                If you leave this, we’ll use your onboarding target.
+              </p>
+            </div>
+          )}
+
+          <div className="mt-5 flex justify-end">
+            <button
+              onClick={handleSaveDeficitSettings}
+              className="rounded-full bg-emerald-400 px-5 py-2 text-sm font-semibold text-slate-950"
+            >
+              Save deficit settings
+            </button>
           </div>
         </section>
 

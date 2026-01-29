@@ -26,6 +26,14 @@ export type Profile = {
   targetCalories: number;
   createdAt: string;
   updatedAt: string;
+
+  // Optional deficit tracking settings
+  deficitGoalKg?: number; // e.g. 10
+  deficitKcalPerKg?: number; // default 7700
+  deficitUseTargetChange?: boolean; // enable before/after targets
+  deficitTargetBefore?: number; // kcal/day
+  deficitTargetAfter?: number; // kcal/day
+  deficitChangeDay?: number; // day index (1-based) when target switches
 };
 
 export type Entry = {
@@ -67,4 +75,18 @@ export const useEntriesBetweenDays = (start: string, end: string) =>
   useLiveQuery(
     () => db.entries.where("dayKey").between(start, end, true, true).toArray(),
     [start, end],
+  );
+
+export const useEntryDayBounds = () =>
+  useLiveQuery(
+    async () => {
+      const first = await db.entries.orderBy("dayKey").first();
+      const last = await db.entries.orderBy("dayKey").last();
+      return {
+        firstDayKey: first?.dayKey ?? null,
+        lastDayKey: last?.dayKey ?? null,
+      };
+    },
+    [],
+    { firstDayKey: null as string | null, lastDayKey: null as string | null },
   );

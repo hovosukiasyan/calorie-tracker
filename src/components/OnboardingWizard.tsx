@@ -20,9 +20,10 @@ export default function OnboardingWizard({
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState(() => ({
     sex: (initialValues?.sex ?? "female") as Sex,
-    age: initialValues?.age ?? 30,
-    heightCm: initialValues?.heightCm ?? 165,
-    weightKg: initialValues?.weightKg ?? 70,
+    // Keep numeric inputs as strings so users can clear/replace easily.
+    age: String(initialValues?.age ?? 30),
+    heightCm: String(initialValues?.heightCm ?? 165),
+    weightKg: String(initialValues?.weightKg ?? 70),
     activityLevel: initialValues?.activityLevel ?? "moderate",
     goal: initialValues?.goal ?? "maintain",
     pace: initialValues?.pace ?? 0.5,
@@ -100,7 +101,8 @@ export default function OnboardingWizard({
               type="number"
               min="13"
               value={form.age}
-              onChange={(event) => update("age", Number(event.target.value))}
+              onChange={(event) => update("age", event.target.value)}
+              inputMode="numeric"
               className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
             />
           </div>
@@ -112,7 +114,8 @@ export default function OnboardingWizard({
               type="number"
               min="120"
               value={form.heightCm}
-              onChange={(event) => update("heightCm", Number(event.target.value))}
+              onChange={(event) => update("heightCm", event.target.value)}
+              inputMode="numeric"
               className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
             />
           </div>
@@ -124,7 +127,8 @@ export default function OnboardingWizard({
               type="number"
               min="30"
               value={form.weightKg}
-              onChange={(event) => update("weightKg", Number(event.target.value))}
+              onChange={(event) => update("weightKg", event.target.value)}
+              inputMode="numeric"
               className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
             />
           </div>
