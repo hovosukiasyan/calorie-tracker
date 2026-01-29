@@ -1,31 +1,32 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamicImport from "next/dynamic";
 import AppShell from "@/src/components/AppShell";
 import StatCard from "@/src/components/StatCard";
 import { useEntriesBetweenDays, useProfile } from "@/src/db";
 import { formatNumber } from "@/src/lib/calculations";
 import { addDays, formatDay, getLocalDayKey, subtractDays } from "@/src/lib/date";
+import { useI18n } from "@/src/i18n/LanguageProvider";
 
-const buildDaySeries = (startKey: string, days: number, totals: Map<string, number>) =>
+const AnalyticsCharts = dynamicImport(() => import("./Charts"), {
+  ssr: false,
+});
+
+const buildDaySeries = (
+  startKey: string,
+  days: number,
+  totals: Map<string, number>,
+  locale: string,
+) =>
   Array.from({ length: days }).map((_, index) => {
     const dayKey = addDays(startKey, index);
     return {
       dayKey,
-      label: formatDay(dayKey),
+      label: formatDay(dayKey, locale),
       calories: totals.get(dayKey) ?? 0,
     };
   });
@@ -33,6 +34,7 @@ const buildDaySeries = (startKey: string, days: number, totals: Map<string, numb
 export default function AnalyticsPage() {
   const router = useRouter();
   const profile = useProfile();
+  const { t, locale } = useI18n();
   const todayKey = getLocalDayKey(new Date());
   const startKey = subtractDays(todayKey, 29);
   const entries = useEntriesBetweenDays(startKey, todayKey) ?? [];
@@ -46,7 +48,7 @@ export default function AnalyticsPage() {
   if (!profile) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
-        <p className="text-sm text-slate-400">Loading analytics…</p>
+        <p className="text-sm text-slate-400">{t("analytics.loading")}</p>
       </div>
     );
   }
@@ -56,7 +58,7 @@ export default function AnalyticsPage() {
     totals.set(entry.dayKey, (totals.get(entry.dayKey) ?? 0) + entry.calories);
   });
 
-  const last30 = buildDaySeries(startKey, 30, totals);
+  const last30 = buildDaySeries(startKey, 30, totals, locale);
   const last14 = last30.slice(-14);
   const last7 = last30.slice(-7);
 
@@ -81,88 +83,62 @@ export default function AnalyticsPage() {
   );
 
   return (
-    <AppShell title="Analytics">
+    <AppShell title={t("analytics.title")}>
       <div className="grid gap-4 lg:grid-cols-4">
-        <StatCard label="30-day average" value={`${formatNumber(Math.round(average))} kcal`} />
         <StatCard
-          label="Best day"
-          value={`${formatNumber(bestDay.calories)} kcal`}
-          helper={formatDay(bestDay.dayKey)}
+          label={t("analytics.cards.avg30")}
+          value={`${formatNumber(Math.round(average), locale)} kcal`}
         />
         <StatCard
-          label="Highest day"
-          value={`${formatNumber(highestDay.calories)} kcal`}
-          helper={formatDay(highestDay.dayKey)}
+          label={t("analytics.cards.bestDay")}
+          value={`${formatNumber(bestDay.calories, locale)} kcal`}
+          helper={formatDay(bestDay.dayKey, locale)}
         />
         <StatCard
-          label="Adherence"
+          label={t("analytics.cards.highestDay")}
+          value={`${formatNumber(highestDay.calories, locale)} kcal`}
+          helper={formatDay(highestDay.dayKey, locale)}
+        />
+        <StatCard
+          label={t("analytics.cards.adherence")}
           value={`${Math.round((adherenceDays.length / last30.length) * 100)}%`}
-          helper="Days within +/- 100 kcal"
+          helper={t("analytics.cards.adherenceHelp")}
         />
       </div>
 
       <section className="mt-6 space-y-6">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-          <h2 className="text-lg font-semibold text-white">Weekly intake vs target</h2>
-          <p className="text-xs text-slate-400">Last 7 days</p>
-          <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={last7}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="label" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155" }} />
-                <Legend />
-                <Line type="monotone" dataKey="calories" stroke="#34d399" strokeWidth={2} />
-                <Line
-                  type="monotone"
-                  dataKey={() => profile.targetCalories}
-                  name="Target"
-                  stroke="#f97316"
-                  strokeDasharray="4 4"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <h2 className="text-lg font-semibold text-white">
+            {t("analytics.sections.weeklyVsTarget")}
+          </h2>
+          <p className="text-xs text-slate-400">{t("analytics.sections.last7Days")}</p>
+          <AnalyticsCharts
+            variant="weekly"
+            data={last7}
+            targetCalories={profile.targetCalories}
+            targetLabel={t("analytics.chart.target")}
+          />
         </div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-          <h2 className="text-lg font-semibold text-white">Rolling 7-day average</h2>
-          <p className="text-xs text-slate-400">Last 30 days</p>
-          <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={rolling}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="label" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155" }} />
-                <Legend />
-                <Line type="monotone" dataKey="average" stroke="#38bdf8" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <h2 className="text-lg font-semibold text-white">
+            {t("analytics.sections.rollingAvg")}
+          </h2>
+          <p className="text-xs text-slate-400">{t("analytics.sections.last30Days")}</p>
+          <AnalyticsCharts variant="rolling" data={rolling} />
         </div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-          <h2 className="text-lg font-semibold text-white">Deficit / surplus</h2>
-          <p className="text-xs text-slate-400">Last 14 days vs target</p>
-          <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={last14.map((item) => ({
-                  ...item,
-                  delta: item.calories - profile.targetCalories,
-                }))}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="label" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155" }} />
-                <Legend />
-                <Bar dataKey="delta" fill="#f97316" name="Delta" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <h2 className="text-lg font-semibold text-white">
+            {t("analytics.sections.deficitSurplus")}
+          </h2>
+          <p className="text-xs text-slate-400">{t("analytics.sections.last14Days")}</p>
+          <AnalyticsCharts
+            variant="delta"
+            data={last14}
+            targetCalories={profile.targetCalories}
+            deltaLabel={t("analytics.chart.delta")}
+          />
         </div>
       </section>
     </AppShell>

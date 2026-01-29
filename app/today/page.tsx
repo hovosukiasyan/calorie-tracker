@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/src/components/AppShell";
@@ -10,23 +12,28 @@ import StatCard from "@/src/components/StatCard";
 import { db, type Entry, useEntriesForDay, useProfile } from "@/src/db";
 import { formatNumber } from "@/src/lib/calculations";
 import { getLocalDayKey } from "@/src/lib/date";
+import { useI18n } from "@/src/i18n/LanguageProvider";
 
 const buildDefaultEntry = (): EntryFormValues => ({
   calories: 0,
   createdAt: new Date().toISOString(),
 });
 
+const EMPTY_ENTRIES: Entry[] = [];
+
 export default function TodayPage() {
   const router = useRouter();
   const profile = useProfile();
   const dayKey = getLocalDayKey(new Date());
-  const entries = useEntriesForDay(dayKey) ?? [];
+  const entries = useEntriesForDay(dayKey);
+  const entriesList = entries ?? EMPTY_ENTRIES;
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Entry | null>(null);
+  const { t, locale } = useI18n();
 
   const totals = useMemo(() => {
-    const totalCalories = entries.reduce((sum, entry) => sum + entry.calories, 0);
-    const macros = entries.reduce(
+    const totalCalories = entriesList.reduce((sum, entry) => sum + entry.calories, 0);
+    const macros = entriesList.reduce(
       (sum, entry) => {
         sum.protein += entry.protein ?? 0;
         sum.carbs += entry.carbs ?? 0;
@@ -36,7 +43,7 @@ export default function TodayPage() {
       { protein: 0, carbs: 0, fat: 0 },
     );
     return { totalCalories, macros };
-  }, [entries]);
+  }, [entriesList]);
 
   useEffect(() => {
     if (profile === null) {
@@ -47,7 +54,7 @@ export default function TodayPage() {
   if (!profile) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
-        <p className="text-sm text-slate-400">Loading profile…</p>
+        <p className="text-sm text-slate-400">{t("today.loading")}</p>
       </div>
     );
   }
@@ -74,7 +81,7 @@ export default function TodayPage() {
 
   return (
     <AppShell
-      title="Today"
+      title={t("today.title")}
       action={
         <span className="rounded-full border border-slate-800 px-3 py-1 text-xs text-slate-300">
           {dayKey}
@@ -87,27 +94,32 @@ export default function TodayPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                  Daily target
+                  {t("today.dailyTarget")}
                 </p>
                 <p className="mt-2 text-3xl font-semibold text-white">
-                  {formatNumber(profile.targetCalories)} kcal
+                  {formatNumber(profile.targetCalories, locale)} kcal
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                  Consumed
+                  {t("today.consumed")}
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-white">
-                  {formatNumber(totals.totalCalories)} kcal
+                  {formatNumber(totals.totalCalories, locale)} kcal
                 </p>
               </div>
             </div>
             <div className="mt-4">
               <ProgressBar value={progress} />
               <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-400">
-                <span>Remaining: {formatNumber(remaining)} kcal</span>
                 <span>
-                  {tdeeDelta >= 0 ? "Surplus" : "Deficit"}: {formatNumber(Math.abs(tdeeDelta))} kcal vs TDEE
+                  {t("today.remaining")}: {formatNumber(remaining, locale)} kcal
+                </span>
+                <span>
+                  {tdeeDelta >= 0 ? t("today.surplus") : t("today.deficit")}:{" "}
+                  {t("today.vsTdee", {
+                    amount: formatNumber(Math.abs(tdeeDelta), locale),
+                  })}
                 </span>
               </div>
             </div>
@@ -115,19 +127,24 @@ export default function TodayPage() {
 
           <div className="grid gap-3 sm:grid-cols-3">
             <StatCard
-              label="Protein"
-              value={`${formatNumber(totals.macros.protein)} g`}
+              label={t("today.macros.protein")}
+              value={`${formatNumber(totals.macros.protein, locale)} g`}
             />
             <StatCard
-              label="Carbs"
-              value={`${formatNumber(totals.macros.carbs)} g`}
+              label={t("today.macros.carbs")}
+              value={`${formatNumber(totals.macros.carbs, locale)} g`}
             />
-            <StatCard label="Fat" value={`${formatNumber(totals.macros.fat)} g`} />
+            <StatCard
+              label={t("today.macros.fat")}
+              value={`${formatNumber(totals.macros.fat, locale)} g`}
+            />
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900/70">
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
-              <h2 className="text-lg font-semibold text-white">Today’s entries</h2>
+              <h2 className="text-lg font-semibold text-white">
+                {t("today.entries.title")}
+              </h2>
               <button
                 onClick={() => {
                   setEditing(null);
@@ -135,33 +152,33 @@ export default function TodayPage() {
                 }}
                 className="hidden rounded-full bg-emerald-400 px-4 py-2 text-xs font-semibold text-slate-950 sm:inline-block"
               >
-                Add Entry
+                {t("common.addEntry")}
               </button>
             </div>
             <div className="divide-y divide-slate-800">
-              {entries.length === 0 ? (
+              {entriesList.length === 0 ? (
                 <div className="px-5 py-6 text-sm text-slate-400">
-                  No entries yet. Add your first meal or snack to get started.
+                  {t("today.entries.empty")}
                 </div>
               ) : (
-                [...entries]
+                [...entriesList]
                   .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
                   .map((entry) => (
                     <div key={entry.id} className="flex items-center justify-between px-5 py-4">
                       <div>
                         <p className="text-sm font-medium text-white">
-                          {entry.label ?? "Untitled entry"}
+                          {entry.label ?? t("today.entries.untitled")}
                         </p>
                         <p className="text-xs text-slate-400">
-                          {new Date(entry.createdAt).toLocaleTimeString("en-US", {
-                            hour: "numeric",
+                          {new Date(entry.createdAt).toLocaleTimeString(locale, {
+                            hour: "2-digit",
                             minute: "2-digit",
                           })}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
                         <p className="text-sm text-slate-200">
-                          {formatNumber(entry.calories)} kcal
+                          {formatNumber(entry.calories, locale)} kcal
                         </p>
                         <button
                           onClick={() => {
@@ -170,7 +187,7 @@ export default function TodayPage() {
                           }}
                           className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300"
                         >
-                          Edit
+                          {t("common.edit")}
                         </button>
                         <button
                           onClick={async () => {
@@ -180,7 +197,7 @@ export default function TodayPage() {
                           }}
                           className="rounded-full border border-rose-500/60 px-3 py-1 text-xs text-rose-200"
                         >
-                          Delete
+                          {t("common.delete")}
                         </button>
                       </div>
                     </div>
@@ -191,15 +208,14 @@ export default function TodayPage() {
         </section>
 
         <aside className="space-y-4">
-          <StatCard label="BMR" value={`${formatNumber(profile.bmr)} kcal`} />
-          <StatCard label="TDEE" value={`${formatNumber(profile.tdee)} kcal`} />
+          <StatCard label="BMR" value={`${formatNumber(profile.bmr, locale)} kcal`} />
+          <StatCard label="TDEE" value={`${formatNumber(profile.tdee, locale)} kcal`} />
           <StatCard
-            label="Target"
-            value={`${formatNumber(profile.targetCalories)} kcal`}
+            label={t("common.target")}
+            value={`${formatNumber(profile.targetCalories, locale)} kcal`}
           />
           <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-xs text-slate-400">
-            Targets are based on your onboarding profile. Update them any time in
-            Settings.
+            {t("today.sidebar.note")}
           </div>
         </aside>
       </div>
@@ -211,12 +227,12 @@ export default function TodayPage() {
         }}
         className="fixed bottom-20 right-4 rounded-full bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg sm:hidden"
       >
-        Add Entry
+        {t("common.addEntry")}
       </button>
 
       <Modal
         open={open}
-        title={editing ? "Edit entry" : "Add entry"}
+        title={editing ? t("today.modal.editTitle") : t("today.modal.addTitle")}
         onClose={() => {
           setOpen(false);
           setEditing(null);

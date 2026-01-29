@@ -4,24 +4,9 @@ import { useState } from "react";
 import type { ActivityLevel, Goal, Profile, Sex } from "@/src/db";
 import { buildProfile } from "@/src/lib/calculations";
 import { profileSchema } from "@/src/lib/validation";
-
-const activityOptions: { value: ActivityLevel; label: string }[] = [
-  { value: "sedentary", label: "Sedentary" },
-  { value: "light", label: "Light" },
-  { value: "moderate", label: "Moderate" },
-  { value: "active", label: "Active" },
-  { value: "very-active", label: "Very Active" },
-];
-
-const goalOptions: { value: Goal; label: string }[] = [
-  { value: "lose", label: "Lose weight" },
-  { value: "maintain", label: "Maintain" },
-  { value: "gain", label: "Gain weight" },
-];
+import { useI18n } from "@/src/i18n/LanguageProvider";
 
 const paceOptions = [0.25, 0.5, 0.75, 1];
-
-const steps = ["Basics", "Activity", "Goal"] as const;
 
 export default function OnboardingWizard({
   onComplete,
@@ -30,6 +15,7 @@ export default function OnboardingWizard({
   onComplete: (profile: Profile) => void;
   initialValues?: Profile;
 }) {
+  const { t } = useI18n();
   const [stepIndex, setStepIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState(() => ({
@@ -46,7 +32,7 @@ export default function OnboardingWizard({
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleNext = () => {
-    setStepIndex((prev) => Math.min(prev + 1, steps.length - 1));
+    setStepIndex((prev) => Math.min(prev + 1, 2));
   };
 
   const handleBack = () => {
@@ -63,7 +49,7 @@ export default function OnboardingWizard({
     });
 
     if (!result.success) {
-      setError("Please double-check your inputs.");
+      setError(t("onboarding.error.invalidProfile"));
       return;
     }
 
@@ -75,14 +61,17 @@ export default function OnboardingWizard({
     <div className="space-y-6">
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-          Step {stepIndex + 1} of {steps.length}
+          {t("onboarding.stepOf", { current: stepIndex + 1, total: 3 })}
         </p>
         <h2 className="mt-2 text-xl font-semibold text-white">
-          {steps[stepIndex]}
+          {stepIndex === 0
+            ? t("onboarding.steps.basics")
+            : stepIndex === 1
+              ? t("onboarding.steps.activity")
+              : t("onboarding.steps.goal")}
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Let’s tailor your calorie targets to fit your goals. You can update this later
-          from settings.
+          {t("onboarding.subtitle")}
         </p>
       </div>
 
@@ -92,20 +81,20 @@ export default function OnboardingWizard({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Sex
+              {t("onboarding.labels.sex")}
             </label>
             <select
               value={form.sex}
               onChange={(event) => update("sex", event.target.value as Sex)}
               className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
             >
-              <option value="female">Female</option>
-              <option value="male">Male</option>
+              <option value="female">{t("onboarding.sex.female")}</option>
+              <option value="male">{t("onboarding.sex.male")}</option>
             </select>
           </div>
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Age
+              {t("onboarding.labels.age")}
             </label>
             <input
               type="number"
@@ -117,7 +106,7 @@ export default function OnboardingWizard({
           </div>
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Height (cm)
+              {t("onboarding.labels.heightCm")}
             </label>
             <input
               type="number"
@@ -129,7 +118,7 @@ export default function OnboardingWizard({
           </div>
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Weight (kg)
+              {t("onboarding.labels.weightKg")}
             </label>
             <input
               type="number"
@@ -146,7 +135,7 @@ export default function OnboardingWizard({
         <div className="space-y-4">
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Activity level
+              {t("onboarding.labels.activityLevel")}
             </label>
             <select
               value={form.activityLevel}
@@ -155,14 +144,14 @@ export default function OnboardingWizard({
               }
               className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
             >
-              {activityOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+              <option value="sedentary">{t("onboarding.activity.sedentary")}</option>
+              <option value="light">{t("onboarding.activity.light")}</option>
+              <option value="moderate">{t("onboarding.activity.moderate")}</option>
+              <option value="active">{t("onboarding.activity.active")}</option>
+              <option value="very-active">{t("onboarding.activity.veryActive")}</option>
             </select>
             <p className="mt-2 text-xs text-slate-400">
-              This helps estimate how many calories you burn on an average day.
+              {t("onboarding.help.activityLevel")}
             </p>
           </div>
         </div>
@@ -172,23 +161,21 @@ export default function OnboardingWizard({
         <div className="space-y-4">
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Goal
+              {t("onboarding.labels.goal")}
             </label>
             <select
               value={form.goal}
               onChange={(event) => update("goal", event.target.value as Goal)}
               className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
             >
-              {goalOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+              <option value="lose">{t("onboarding.goal.lose")}</option>
+              <option value="maintain">{t("onboarding.goal.maintain")}</option>
+              <option value="gain">{t("onboarding.goal.gain")}</option>
             </select>
           </div>
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Weekly pace
+              {t("onboarding.labels.weeklyPace")}
             </label>
             <select
               value={form.pace}
@@ -197,17 +184,20 @@ export default function OnboardingWizard({
             >
               {paceOptions.map((pace) => (
                 <option key={pace} value={pace}>
-                  {form.goal === "gain"
-                    ? "Gain"
-                    : form.goal === "lose"
-                      ? "Lose"
-                      : "Maintain"}{" "}
-                  {pace} kg/week
+                  {t("onboarding.pace.option", {
+                    direction:
+                      form.goal === "gain"
+                        ? t("onboarding.pace.direction.gain")
+                        : form.goal === "lose"
+                          ? t("onboarding.pace.direction.lose")
+                          : t("onboarding.pace.direction.maintain"),
+                    pace,
+                  })}
                 </option>
               ))}
             </select>
             <p className="mt-2 text-xs text-slate-400">
-              We’ll translate this into a daily calorie adjustment.
+              {t("onboarding.help.weeklyPace")}
             </p>
           </div>
         </div>
@@ -219,21 +209,21 @@ export default function OnboardingWizard({
           disabled={stepIndex === 0}
           className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 disabled:opacity-40"
         >
-          Back
+          {t("onboarding.buttons.back")}
         </button>
-        {stepIndex < steps.length - 1 ? (
+        {stepIndex < 2 ? (
           <button
             onClick={handleNext}
             className="rounded-full bg-white px-6 py-2 text-sm font-semibold text-slate-900"
           >
-            Continue
+            {t("onboarding.buttons.continue")}
           </button>
         ) : (
           <button
             onClick={handleSubmit}
             className="rounded-full bg-emerald-400 px-6 py-2 text-sm font-semibold text-slate-950"
           >
-            Save Profile
+            {t("onboarding.buttons.saveProfile")}
           </button>
         )}
       </div>

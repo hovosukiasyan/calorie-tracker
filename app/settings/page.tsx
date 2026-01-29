@@ -1,11 +1,14 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/src/components/AppShell";
 import Modal from "@/src/components/Modal";
 import OnboardingWizard from "@/src/components/OnboardingWizard";
 import { db, PROFILE_ID, type Entry, type Profile, useProfile } from "@/src/db";
+import { useI18n } from "@/src/i18n/LanguageProvider";
 
 const downloadJson = (filename: string, data: unknown) => {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -20,6 +23,7 @@ const downloadJson = (filename: string, data: unknown) => {
 export default function SettingsPage() {
   const router = useRouter();
   const profile = useProfile();
+  const { t } = useI18n();
   const [resetOpen, setResetOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -32,7 +36,7 @@ export default function SettingsPage() {
   if (!profile) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
-        <p className="text-sm text-slate-400">Loading settings…</p>
+        <p className="text-sm text-slate-400">{t("settings.loading")}</p>
       </div>
     );
   }
@@ -58,12 +62,12 @@ export default function SettingsPage() {
   };
 
   return (
-    <AppShell title="Settings">
+    <AppShell title={t("settings.title")}>
       <div className="space-y-6">
         <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
-          <h2 className="text-lg font-semibold text-white">Profile</h2>
+          <h2 className="text-lg font-semibold text-white">{t("settings.profile.title")}</h2>
           <p className="text-sm text-slate-400">
-            Update your profile to recalculate BMR, TDEE, and daily targets.
+            {t("settings.profile.subtitle")}
           </p>
           <div className="mt-6">
             <OnboardingWizard
@@ -76,28 +80,28 @@ export default function SettingsPage() {
         </section>
 
         <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
-          <h2 className="text-lg font-semibold text-white">Data management</h2>
+          <h2 className="text-lg font-semibold text-white">{t("settings.data.title")}</h2>
           <p className="text-sm text-slate-400">
-            Export or restore your local data. Data is stored only in this browser.
+            {t("settings.data.subtitle")}
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               onClick={handleExport}
               className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200"
             >
-              Export JSON
+              {t("settings.data.export")}
             </button>
             <button
               onClick={() => fileInputRef.current?.click()}
               className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200"
             >
-              Import JSON
+              {t("settings.data.import")}
             </button>
             <button
               onClick={() => setResetOpen(true)}
               className="rounded-full border border-rose-500/70 px-4 py-2 text-sm text-rose-200"
             >
-              Reset all data
+              {t("settings.data.reset")}
             </button>
             <input
               ref={fileInputRef}
@@ -118,19 +122,18 @@ export default function SettingsPage() {
 
       <Modal
         open={resetOpen}
-        title="Reset all data"
+        title={t("settings.reset.title")}
         onClose={() => setResetOpen(false)}
       >
         <p className="text-sm text-slate-300">
-          This will permanently delete your profile and all entries from this device.
-          This action cannot be undone.
+          {t("settings.reset.body")}
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={() => setResetOpen(false)}
             className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={async () => {
@@ -140,7 +143,7 @@ export default function SettingsPage() {
             }}
             className="rounded-full bg-rose-500 px-4 py-2 text-sm font-semibold text-white"
           >
-            Reset
+            {t("settings.reset.confirm")}
           </button>
         </div>
       </Modal>

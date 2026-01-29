@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/src/i18n/LanguageProvider";
+
 export default function Modal({
   open,
   title,
@@ -11,6 +13,7 @@ export default function Modal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   if (!open) return null;
 
   return (
@@ -22,7 +25,7 @@ export default function Modal({
             onClick={onClose}
             className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:border-slate-500"
           >
-            Close
+            {t("common.close")}
           </button>
         </div>
         <div className="px-5 py-4">{children}</div>

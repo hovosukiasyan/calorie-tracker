@@ -63,5 +63,5 @@ export const updateProfile = (profile: Profile, updates: Partial<Profile>) => {
   };
 };
 
-export const formatNumber = (value: number) =>
-  new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
+export const formatNumber = (value: number, locale = "en-US", maximumFractionDigits = 0) =>
+  new Intl.NumberFormat(locale, { maximumFractionDigits }).format(value);

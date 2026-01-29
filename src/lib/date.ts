@@ -6,18 +6,18 @@ export const getLocalDayKey = (date: Date) => {
   return offsetDate.toISOString().slice(0, 10);
 };
 
-export const formatDay = (dayKey: string) => {
+export const formatDay = (dayKey: string, locale = "en-US") => {
   const date = new Date(`${dayKey}T00:00:00`);
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale, {
     weekday: "short",
     month: "short",
     day: "numeric",
   }).format(date);
 };
 
-export const formatLongDate = (dayKey: string) => {
+export const formatLongDate = (dayKey: string, locale = "en-US") => {
   const date = new Date(`${dayKey}T00:00:00`);
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale, {
     weekday: "long",
     month: "long",
     day: "numeric",

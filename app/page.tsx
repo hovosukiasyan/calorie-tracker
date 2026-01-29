@@ -1,12 +1,16 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useProfile } from "@/src/db";
+import { useI18n } from "@/src/i18n/LanguageProvider";
 
 export default function Home() {
   const router = useRouter();
   const profile = useProfile();
+  const { t } = useI18n();
 
   useEffect(() => {
     if (profile === undefined) return;
@@ -19,7 +23,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
-      <p className="text-sm text-slate-400">Loading your calorie tracker…</p>
+      <p className="text-sm text-slate-400">{t("home.loading")}</p>
     </div>
   );
 }

@@ -3,12 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const navItems = [
-  { href: "/today", label: "Today" },
-  { href: "/history", label: "History" },
-  { href: "/analytics", label: "Analytics" },
-  { href: "/settings", label: "Settings" },
-];
+import LanguageSwitcher from "@/src/components/LanguageSwitcher";
+import { useI18n } from "@/src/i18n/LanguageProvider";
 
 export default function AppShell({
   children,
@@ -20,6 +16,14 @@ export default function AppShell({
   action?: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { t } = useI18n();
+
+  const navItems = [
+    { href: "/today", label: t("nav.today") },
+    { href: "/history", label: t("nav.history") },
+    { href: "/analytics", label: t("nav.analytics") },
+    { href: "/settings", label: t("nav.settings") },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
@@ -27,11 +31,14 @@ export default function AppShell({
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-              Calorie Tracker
+              {t("app.name")}
             </p>
             <h1 className="text-xl font-semibold text-white">{title}</h1>
           </div>
-          {action}
+          <div className="flex items-center gap-3">
+            {action}
+            <LanguageSwitcher />
+          </div>
         </div>
       </header>
 

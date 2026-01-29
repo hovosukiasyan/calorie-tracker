@@ -1,3 +1,5 @@
+"use client";
+
 import Dexie, { type Table } from "dexie";
 import { useLiveQuery } from "dexie-react-hooks";
 

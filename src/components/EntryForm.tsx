@@ -3,10 +3,17 @@
 import { useState } from "react";
 import type { Entry } from "@/src/db";
 import { entrySchema } from "@/src/lib/validation";
+import { useI18n } from "@/src/i18n/LanguageProvider";
 
 export type EntryFormValues = Omit<Entry, "id" | "dayKey">;
 
 const numberValue = (value: string) => (value === "" ? undefined : Number(value));
+
+const isoToLocalInputValue = (iso: string) => {
+  const date = new Date(iso);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+};
 
 export default function EntryForm({
   initialValues,
@@ -17,6 +24,7 @@ export default function EntryForm({
   onSubmit: (values: EntryFormValues) => void;
   onCancel: () => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState(() => ({
     label: initialValues.label ?? "",
     calories: initialValues.calories.toString(),
@@ -45,7 +53,7 @@ export default function EntryForm({
 
     const result = entrySchema.safeParse(payload);
     if (!result.success) {
-      setError("Please provide valid entry details.");
+      setError(t("entry.error.invalid"));
       return;
     }
 
@@ -58,18 +66,18 @@ export default function EntryForm({
       {error ? <p className="text-sm text-rose-300">{error}</p> : null}
       <div>
         <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Label
+          {t("entry.labels.label")}
         </label>
         <input
           value={form.label}
           onChange={handleChange("label")}
-          placeholder="e.g. Greek yogurt"
+          placeholder={t("entry.placeholder.label")}
           className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-slate-100"
         />
       </div>
       <div>
         <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Calories
+          {t("entry.labels.calories")}
         </label>
         <input
           type="number"
@@ -83,7 +91,7 @@ export default function EntryForm({
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
           <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Protein (g)
+            {t("today.macros.protein")} (g)
           </label>
           <input
             type="number"
@@ -95,7 +103,7 @@ export default function EntryForm({
         </div>
         <div>
           <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Carbs (g)
+            {t("today.macros.carbs")} (g)
           </label>
           <input
             type="number"
@@ -107,7 +115,7 @@ export default function EntryForm({
         </div>
         <div>
           <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Fat (g)
+            {t("today.macros.fat")} (g)
           </label>
           <input
             type="number"
@@ -120,11 +128,11 @@ export default function EntryForm({
       </div>
       <div>
         <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Time
+          {t("entry.labels.time")}
         </label>
         <input
           type="datetime-local"
-          value={form.createdAt.slice(0, 16)}
+          value={isoToLocalInputValue(form.createdAt)}
           onChange={(event) =>
             setForm((prev) => ({
               ...prev,
@@ -140,13 +148,13 @@ export default function EntryForm({
           onClick={onCancel}
           className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200"
         >
-          Cancel
+          {t("common.cancel")}
         </button>
         <button
           type="submit"
           className="rounded-full bg-emerald-400 px-5 py-2 text-sm font-semibold text-slate-950"
         >
-          Save Entry
+          {t("common.save")}
         </button>
       </div>
     </form>
